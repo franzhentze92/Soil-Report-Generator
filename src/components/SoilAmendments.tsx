@@ -40,6 +40,25 @@ interface SoilAmendmentsProps {
   onSummaryChange?: (summary: any[]) => void;
 }
 
+// Add this mapping at the top of the file
+const unifiedToGeneric = {
+  'Nitrate-N (KCl)': 'Nitrate',
+  'Ammonium-N (KCl)': 'Ammonium',
+  'Phosphorus (Mehlich III)': 'Phosphorus',
+  'Calcium (Mehlich III)': 'Calcium',
+  'Magnesium (Mehlich III)': 'Magnesium',
+  'Potassium (Mehlich III)': 'Potassium',
+  'Sodium (Mehlich III)': 'Sodium',
+  'Sulfur (KCl)': 'Sulphur',
+  'Aluminium': 'Aluminium',
+  'Silicon (CaCl2)': 'Silicon',
+  'Boron (Hot CaCl2)': 'Boron',
+  'Iron (DTPA)': 'Iron',
+  'Manganese (DTPA)': 'Manganese',
+  'Copper (DTPA)': 'Copper',
+  'Zinc (DTPA)': 'Zinc',
+};
+
 const fertilizers: Record<string, Fertilizer[]> = {
   Nitrogen: [
     { name: 'Urea (Source locally)', nutrientContent: { Ammonium: 46 }, applicationRate: 100, cost: 1.0, recommended: true, contains: ['Ammonium'] },
@@ -123,24 +142,15 @@ const fertilizers: Record<string, Fertilizer[]> = {
 };
 
 const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFertilizers, setSelectedFertilizers, fertilizerRates, setFertilizerRates, allowedExcessPercent, setAllowedExcessPercent, onSummaryChange }) => {
+  // Debug: Log nutrients and deficient nutrients
+  console.log('SoilAmendments nutrients prop:', nutrients);
   // Define a default nutrient for fallback
   const defaultNutrient: Nutrient = { name: '', current: 0, ideal: 0, unit: '', status: 'low' };
 
-  // Define the desired nutrient order
-  const nutrientOrder = [
-    'Calcium', 'Magnesium', 'Potassium', 'Phosphorus', 'Sulphur', 'Nitrate', 'Ammonium',
-    'Boron', 'Iron', 'Copper', 'Manganese', 'Zinc', 'Aluminium', 'Sodium'
-  ];
-  // Sort and filter nutrients to match the order, showing all
-  const orderedNutrients = nutrientOrder
-    .map(name => nutrients.find(n => n.name.toLowerCase() === name.toLowerCase()))
-    .filter(Boolean);
-
   // Only show cards for deficient nutrients
-  const deficientNutrients = orderedNutrients.filter(n => n.status === 'low');
-
-  // Add this line to define deficientNutrientNames in scope
-  const deficientNutrientNames = deficientNutrients.map(n => n.name);
+  const allowedNutrientNames = Object.keys(unifiedToGeneric);
+  const deficientNutrients = nutrients.filter(n => n.status === 'low' && allowedNutrientNames.includes(n.name));
+  console.log('SoilAmendments deficientNutrients:', deficientNutrients);
 
   // Define main and secondary nutrient names
   const mainNutrientNames = ['Calcium', 'Magnesium', 'Potassium', 'Phosphorus', 'Sulphur'];

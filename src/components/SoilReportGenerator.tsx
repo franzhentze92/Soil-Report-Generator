@@ -1926,7 +1926,16 @@ const SoilReportGenerator: React.FC = () => {
   });
   const [showColorPopup, setShowColorPopup] = React.useState(false);
 
-  const unifiedNutrients = getUnifiedNutrients(fixedNutrientData);
+  // Add status property to each nutrient
+  const unifiedNutrients = getUnifiedNutrients(fixedNutrientData).map(n => {
+    if (typeof n.current === 'number' && typeof n.ideal === 'number' && n.ideal > 0) {
+      const frac = n.current / n.ideal;
+      if (frac < 0.75) return { ...n, status: 'low' };
+      if (frac > 1.25) return { ...n, status: 'high' };
+      return { ...n, status: 'optimal' };
+    }
+    return { ...n, status: 'optimal' };
+  });
 
   // Add debug log before rendering the first bar chart
   console.log('unifiedNutrients:', unifiedNutrients);
