@@ -196,9 +196,12 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
         }
       });
     });
+    // Requirement in ppm
     const requirementPpm = Math.max(nutrient.ideal - (nutrient.current + alreadyAdded), 0);
+    // Convert to kg/ha
     const requirementKgHa = requirementPpm * 2.4;
-    const percent = fertilizer.nutrientContent[nutrient.name] || 0;
+    const percent = fertilizer.nutrientContent[nutrient.genericName || nutrient.name] || fertilizer.nutrientContent[nutrient.name] || 0;
+    // Calculate uncapped rate in kg/ha
     const uncapped = percent > 0 ? Number(((requirementKgHa * 100) / percent).toFixed(1)) : 0;
     // Capped value logic
     let cappedValue = uncapped;
