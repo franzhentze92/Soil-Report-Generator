@@ -289,6 +289,69 @@ const renderYAxisTick = ({ x, y, payload }) => {
 // 5. Ensure all nutrient-related UI is now driven by unifiedNutrients for full consistency
 // ... existing code ...
 
+// Move unifiedToGeneric to the top of the file, before the component
+const unifiedToGeneric = {
+  'Nitrate-N (KCl)': 'Nitrate',
+  'Nitrate_N_KCl': 'Nitrate',
+  'Ammonium-N (KCl)': 'Ammonium',
+  'Ammonium_N_KCl': 'Ammonium',
+  'Phosphorus (Mehlich III)': 'Phosphorus',
+  'Phosphorus_Mehlich_III': 'Phosphorus',
+  'Calcium (Mehlich III)': 'Calcium',
+  'Calcium_Mehlich_III': 'Calcium',
+  'Magnesium (Mehlich III)': 'Magnesium',
+  'Magnesium_Mehlich_III': 'Magnesium',
+  'Potassium (Mehlich III)': 'Potassium',
+  'Potassium_Mehlich_III': 'Potassium',
+  'Sodium (Mehlich III)': 'Sodium',
+  'Sodium_Mehlich_III': 'Sodium',
+  'Sulfur (KCl)': 'Sulphur',
+  'Sulfur_KCl': 'Sulphur',
+  'Aluminium': 'Aluminium',
+  'Silicon (CaCl2)': 'Silicon',
+  'Silicon_CaCl2': 'Silicon',
+  'Boron (Hot CaCl2)': 'Boron',
+  'Boron_Hot_CaCl2': 'Boron',
+  'Iron (DTPA)': 'Iron',
+  'Iron_DTPA': 'Iron',
+  'Manganese (DTPA)': 'Manganese',
+  'Manganese_DTPA': 'Manganese',
+  'Copper (DTPA)': 'Copper',
+  'Copper_DTPA': 'Copper',
+  'Zinc (DTPA)': 'Zinc',
+  'Zinc_DTPA': 'Zinc',
+  // Base Saturation
+  'Calcium': 'Calcium',
+  'Magnesium': 'Magnesium',
+  'Potassium': 'Potassium',
+  'Sodium': 'Sodium',
+  'Aluminum': 'Aluminium',
+  'Hydrogen': 'Hydrogen',
+  'Other_Bases': 'Other_Bases',
+  // Lamotte/Reams
+  'Calcium_LaMotte': 'Calcium',
+  'Magnesium_LaMotte': 'Magnesium',
+  'Phosphorus_LaMotte': 'Phosphorus',
+  'Potassium_LaMotte': 'Potassium',
+  // TAE
+  'Sodium_TAE': 'Sodium',
+  'Potassium_TAE': 'Potassium',
+  'Calcium_TAE': 'Calcium',
+  'Magnesium_TAE': 'Magnesium',
+  'Phosphorus_TAE': 'Phosphorus',
+  'Aluminium_TAE': 'Aluminium',
+  'Copper_TAE': 'Copper',
+  'Iron_TAE': 'Iron',
+  'Manganese_TAE': 'Manganese',
+  'Selenium_TAE': 'Selenium',
+  'Zinc_TAE': 'Zinc',
+  'Boron_TAE': 'Boron',
+  'Silicon_TAE': 'Silicon',
+  'Cobalt_TAE': 'Cobalt',
+  'Molybdenum_TAE': 'Molybdenum',
+  'Sulfur_TAE': 'Sulphur',
+};
+
 const SoilReportGenerator: React.FC = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [showReport, setShowReport] = useState(false);
@@ -1926,15 +1989,15 @@ const SoilReportGenerator: React.FC = () => {
   });
   const [showColorPopup, setShowColorPopup] = React.useState(false);
 
-  // Add status property to each nutrient
+  // Always set genericName using this mapping
   const unifiedNutrients = getUnifiedNutrients(fixedNutrientData).map(n => {
-    if (typeof n.current === 'number' && typeof n.ideal === 'number' && n.ideal > 0) {
-      const frac = n.current / n.ideal;
-      if (frac < 0.75) return { ...n, status: 'low' };
-      if (frac > 1.25) return { ...n, status: 'high' };
-      return { ...n, status: 'optimal' };
+    const genericName = unifiedToGeneric[n.name] || n.name;
+    let status = 'optimal';
+    if (typeof n.ideal === 'number' && isFinite(n.ideal) && n.ideal !== 0) {
+      if (n.current < 0.75 * n.ideal) status = 'low';
+      else if (n.current > 1.25 * n.ideal) status = 'high';
     }
-    return { ...n, status: 'optimal' };
+    return { ...n, genericName, status };
   });
 
   // Add debug log before rendering the first bar chart
@@ -2311,14 +2374,12 @@ const SoilReportGenerator: React.FC = () => {
               </button>
             </CardHeader>
             <CardContent>
-              <SoilUpload onFileUpload={handleFileUpload} resetKey={uploadResetKey} />
+              <SoilUpload onFileUpload={handleFileUpload} />
               {uploadedFile && (
                 <div className="mt-4 flex justify-end">
                   <Button variant="outline" onClick={() => {
-                    setUploadResetKey(k => k + 1);
                     setUploadedFile(null);
                     setShowReport(false);
-                    setNutrients([]);
                   }}>
                     Upload New Soil Analysis
                   </Button>
@@ -2338,7 +2399,7 @@ const SoilReportGenerator: React.FC = () => {
                     Analysis complete. Generate comprehensive soil management report.
                   </p>
                 </div>
-                <Button onClick={handleGenerateReport}>
+                <Button onClick={() => setShowReport(true)}>
                   Generate Report
                 </Button>
               </div>

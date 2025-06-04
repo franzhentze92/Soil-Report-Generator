@@ -16,6 +16,7 @@ interface Nutrient {
   ideal: number;
   unit: string;
   status: 'low' | 'optimal' | 'high';
+  genericName?: string;
 }
 
 interface Fertilizer {
@@ -141,21 +142,41 @@ const fertilizers: Record<string, Fertilizer[]> = {
   ]
 };
 
+// Add this at the top of the component (or near the deficientNutrients filter)
+const allowedSoilAmendmentNames = [
+  'Nitrate_N_KCl',
+  'Ammonium_N_KCl',
+  'Phosphorus_Mehlich_III',
+  'Calcium_Mehlich_III',
+  'Magnesium_Mehlich_III',
+  'Potassium_Mehlich_III',
+  'Sodium_Mehlich_III',
+  'Sulfur_KCl',
+  'Aluminium',
+  'Silicon_CaCl2',
+  'Boron_Hot_CaCl2',
+  'Iron_DTPA',
+  'Manganese_DTPA',
+  'Copper_DTPA',
+  'Zinc_DTPA'
+];
+
 const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFertilizers, setSelectedFertilizers, fertilizerRates, setFertilizerRates, allowedExcessPercent, setAllowedExcessPercent, onSummaryChange }) => {
   // Debug: Log nutrients and deficient nutrients
   console.log('SoilAmendments nutrients prop:', nutrients);
+  nutrients.forEach(n => console.log('Nutrient:', n.name, 'genericName:', n.genericName, 'status:', n.status));
   // Define a default nutrient for fallback
   const defaultNutrient: Nutrient = { name: '', current: 0, ideal: 0, unit: '', status: 'low' };
 
-  // Only show cards for deficient nutrients
-  const allowedNutrientNames = Object.keys(unifiedToGeneric);
-  const deficientNutrients = nutrients.filter(n => n.status === 'low' && allowedNutrientNames.includes(n.name));
+  // Only show cards for deficient nutrients in the allowed list
+  const deficientNutrients = nutrients
+    .filter(n => n.status === 'low' && allowedSoilAmendmentNames.includes(n.name));
   console.log('SoilAmendments deficientNutrients:', deficientNutrients);
 
   // Define main and secondary nutrient names
   const mainNutrientNames = ['Calcium', 'Magnesium', 'Potassium', 'Phosphorus', 'Sulphur'];
-  const mainDeficientNutrients = deficientNutrients.filter(n => mainNutrientNames.includes(n.name));
-  const secondaryDeficientNutrients = deficientNutrients.filter(n => !mainNutrientNames.includes(n.name));
+  const mainDeficientNutrients = deficientNutrients.filter(n => mainNutrientNames.includes(n.genericName));
+  const secondaryDeficientNutrients = deficientNutrients.filter(n => !mainNutrientNames.includes(n.genericName));
 
   // Calculate the required fertilizer rate to reach the target for a given fertilizer
   const calculateRequirement = (nutrient: Nutrient, fertilizer: Fertilizer | undefined) => {
@@ -418,8 +439,8 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
             <CardContent className="p-4">
               <h3 className="text-lg font-semibold text-black mb-2 mt-4">Main Nutrients</h3>
               {mainDeficientNutrients.map((nutrient, idx) => {
-                let availableFertilizers = fertilizers[nutrient.name] || [];
-                if (nutrient.name === 'Nitrate') {
+                let availableFertilizers = fertilizers[nutrient.genericName] || [];
+                if (nutrient.genericName === 'Nitrate') {
                   availableFertilizers = ammoniumNitrateFerts.filter(f => f.n_form.includes('Nitrate')).map(f => ({
                     name: f.name,
                     nutrientContent: {
@@ -448,7 +469,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                     description: f.description
                   }));
                 }
-                if (nutrient.name === 'Ammonium') {
+                if (nutrient.genericName === 'Ammonium') {
                   availableFertilizers = ammoniumNitrateFerts.filter(f => f.n_form.includes('Ammonium')).map(f => ({
                     name: f.name,
                     nutrientContent: {
@@ -477,7 +498,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                     description: f.description
                   }));
                 }
-                const selectedFertilizerList = selectedFertilizers[nutrient.name] || [];
+                const selectedFertilizerList = selectedFertilizers[nutrient.genericName] || [];
                 const isSelected = selectedFertilizerList.length > 0;
 
                 // Find all nutrients (in order) that have selected this fertilizer
@@ -487,7 +508,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                 if (isSelected) {
                   const nutrientsWithThisFert = selectedFertilizerList.map(f => f);
                   if (nutrientsWithThisFert.length > 1) {
-                    isFirstOccurrence = nutrientsWithThisFert[0] === nutrient.name;
+                    isFirstOccurrence = nutrientsWithThisFert[0] === nutrient.genericName;
                     if (!isFirstOccurrence) {
                       duplicateFertilizerNutrient = nutrientsWithThisFert[0];
                       duplicateFertilizerRate = fertilizerRates[nutrientsWithThisFert[0]] || 0;
@@ -515,10 +536,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                 // If there are no available fertilizers, show a message
                 if (availableFertilizers.length === 0) {
                   return (
-                    <Card key={nutrient.name} className="bg-white border-gray-200">
+                    <Card key={nutrient.genericName} className="bg-white border-gray-200">
                       <CardContent className="p-4">
                         <div className="mb-2 text-sm text-gray-700">
-                          <strong>{nutrient.name}:</strong> Current: {nutrient.current} {nutrient.unit}, Target: {nutrient.ideal} {nutrient.unit}.<br />
+                          <strong>{nutrient.genericName}:</strong> Current: {nutrient.current} {nutrient.unit}, Target: {nutrient.ideal} {nutrient.unit}.<br />
                           <span className="text-red-600 font-semibold">No fertilizer recommendation available for this nutrient.</span>
                         </div>
                       </CardContent>
@@ -527,10 +548,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                 }
 
                 return (
-                  <Card key={nutrient.name} className="bg-white border-gray-200">
+                  <Card key={nutrient.genericName} className="bg-white border-gray-200">
                     <CardContent className="p-4">
                       <div className="mb-2 text-sm text-gray-700">
-                        <strong>{nutrient.name}:</strong> Current: {nutrient.current} {nutrient.unit}, Target: {nutrient.ideal} {nutrient.unit}, Needed: {requirement > 0 ? requirement.toFixed(1) : 0} {nutrient.unit}.<br />
+                        <strong>{nutrient.genericName}:</strong> Current: {nutrient.current} {nutrient.unit}, Target: {nutrient.ideal} {nutrient.unit}, Needed: {requirement > 0 ? requirement.toFixed(1) : 0} {nutrient.unit}.<br />
                         Select a fertilizer below to fulfill this nutrient requirement.<br />
                         {(() => {
                           const deviation = newValue - nutrient.ideal;
@@ -550,16 +571,16 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                           // Check if this nutrient was affected by another fertilizer selection
                           let explanation = '';
                           Object.entries(selectedFertilizers).forEach(([otherNutrient, fertList]) => {
-                            if (otherNutrient !== nutrient.name) {
+                            if (otherNutrient !== nutrient.genericName) {
                               fertList.forEach(fertName => {
                                 const fertObj = fertilizers[otherNutrient]?.find(f => f.name === fertName);
-                                if (fertObj && fertObj.contains && fertObj.contains.includes(nutrient.name)) {
-                                  const percent = fertObj.nutrientContent[nutrient.name] || 0;
+                                if (fertObj && fertObj.contains && fertObj.contains.includes(nutrient.genericName)) {
+                                  const percent = fertObj.nutrientContent[nutrient.genericName] || 0;
                                   const rate = fertilizerRates[fertName];
                                   if (rate) {
                                     const added = (rate * percent) / 100;
                                     if (added > 0) {
-                                      explanation += `The value for ${nutrient.name} increased by ${added.toFixed(1)} ${nutrient.unit} because ${otherNutrient} was treated with ${fertObj.name}, which also contains ${nutrient.name}. `;
+                                      explanation += `The value for ${nutrient.genericName} increased by ${added.toFixed(1)} ${nutrient.unit} because ${otherNutrient} was treated with ${fertObj.name}, which also contains ${nutrient.genericName}. `;
                                     }
                                   }
                                 }
@@ -573,7 +594,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                         })()}
                       </div>
                       <div className="flex justify-between items-center mb-3">
-                        <h4 className="font-medium text-black">{nutrient.name}</h4>
+                        <h4 className="font-medium text-black">{nutrient.genericName}</h4>
                         <span className="text-sm font-medium text-blue-600">
                           New: {newValue.toFixed(1)}{nutrient.unit}
                         </span>
@@ -628,23 +649,23 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                             Object.entries(selectedFertilizers).forEach(([otherNutrient, fertList]) => {
                               if (!Array.isArray(fertList)) return;
                               fertList.forEach(fertName2 => {
-                                if (fertName2 === fertName && otherNutrient === nutrient.name) return;
+                                if (fertName2 === fertName && otherNutrient === nutrient.genericName) return;
                                 const fertObj2 = fertilizers[otherNutrient]?.find(f => f.name === fertName2);
-                                if (fertObj2 && fertObj2.nutrientContent[nutrient.name]) {
-                                  const percent2 = fertObj2.nutrientContent[nutrient.name];
+                                if (fertObj2 && fertObj2.nutrientContent[nutrient.genericName]) {
+                                  const percent2 = fertObj2.nutrientContent[nutrient.genericName];
                                   const rate2 = fertilizerRates[fertName2] !== undefined ? fertilizerRates[fertName2] : 0;
                                   alreadyAdded += (rate2 * percent2) / 100;
                                 }
                               });
                             });
                             const requirement = Math.max(nutrient.ideal - (nutrient.current + alreadyAdded), 0);
-                            const percent = fertObj && fertObj.nutrientContent ? fertObj.nutrientContent[nutrient.name] || 0 : 0;
+                            const percent = fertObj && fertObj.nutrientContent ? fertObj.nutrientContent[nutrient.genericName] || 0 : 0;
                             const uncapped = percent > 0 ? Number(((requirement * 100) / percent).toFixed(1)) : 0;
                             // Warnings
                             let overageWarning = '';
                             if (fertObj && fertObj.recommended && fertObj.contains && fertObj.contains.length > 1) {
                               fertObj.contains.forEach(cont => {
-                                if (cont !== nutrient.name) {
+                                if (cont !== nutrient.genericName) {
                                   const nObj = nutrients.find(nu => nu.name === cont);
                                   if (nObj) {
                                     const added = (requirement * percent) / 100;
@@ -660,8 +681,8 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
 
                             // --- FIX: Move dropdown options logic outside JSX ---
                             const sortedFertilizers = [...availableFertilizers].sort((a, b) => {
-                              const aPct = typeof a.nutrientContent[nutrient.name] === 'number' ? a.nutrientContent[nutrient.name] : 0;
-                              const bPct = typeof b.nutrientContent[nutrient.name] === 'number' ? b.nutrientContent[nutrient.name] : 0;
+                              const aPct = typeof a.nutrientContent[nutrient.genericName] === 'number' ? a.nutrientContent[nutrient.genericName] : 0;
+                              const bPct = typeof b.nutrientContent[nutrient.genericName] === 'number' ? b.nutrientContent[nutrient.genericName] : 0;
                               return bPct - aPct;
                             });
                             const fertilizerOptions = sortedFertilizers.map(fert => {
@@ -710,23 +731,23 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                               Object.entries(selectedFertilizers).forEach(([otherNutrient, fertList]) => {
                                 if (!Array.isArray(fertList)) return;
                                 fertList.forEach(fertName2 => {
-                                  if (fertName2 === fert.name && otherNutrient === nutrient.name) return;
+                                  if (fertName2 === fert.name && otherNutrient === nutrient.genericName) return;
                                   const fertObj2 = fertilizers[otherNutrient]?.find(f => f.name === fertName2);
-                                  if (fertObj2 && fertObj2.nutrientContent[nutrient.name]) {
-                                    const percent2 = fertObj2.nutrientContent[nutrient.name];
+                                  if (fertObj2 && fertObj2.nutrientContent[nutrient.genericName]) {
+                                    const percent2 = fertObj2.nutrientContent[nutrient.genericName];
                                     const rate2 = fertilizerRates[fertName2] !== undefined ? fertilizerRates[fertName2] : 0;
                                     alreadyAdded += (rate2 * percent2) / 100;
                                   }
                                 });
                               });
                               const requirement = Math.max(nutrient.ideal - (nutrient.current + alreadyAdded), 0);
-                              const percent = fert && fert.nutrientContent ? fert.nutrientContent[nutrient.name] || 0 : 0;
+                              const percent = fert && fert.nutrientContent ? fert.nutrientContent[nutrient.genericName] || 0 : 0;
                               const uncapped = percent > 0 ? Number(((requirement * 100) / percent).toFixed(1)) : 0;
                               // Warnings
                               let overageWarning = '';
                               if (fert && fert.recommended && fert.contains && fert.contains.length > 1) {
                                 fert.contains.forEach(cont => {
-                                  if (cont !== nutrient.name) {
+                                  if (cont !== nutrient.genericName) {
                                     const nObj = nutrients.find(nu => nu.name === cont);
                                     if (nObj) {
                                       const added = (requirement * percent) / 100;
@@ -816,7 +837,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                     value={fertName}
                                     onValueChange={value => {
                                       if (selectedFertilizerList.includes(value)) return;
-                                      handleFertilizerSelect(nutrient.name, value, fertIdx, selectedFertilizerList);
+                                      handleFertilizerSelect(nutrient.genericName, value, fertIdx, selectedFertilizerList);
                                     }}
                                   >
                                     <SelectTrigger className="bg-white w-full h-10">
@@ -855,7 +876,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                       setSelectedFertilizers(prev => {
                                         const arr = [...selectedFertilizerList];
                                         arr.splice(fertIdx, 1);
-                                        return { ...prev, [nutrient.name]: arr };
+                                        return { ...prev, [nutrient.genericName]: arr };
                                       });
                                     }}
                                   >Remove</Button>
@@ -871,7 +892,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                               onClick={() => {
                                 setSelectedFertilizers(prev => ({
                                   ...prev,
-                                  [nutrient.name]: [...selectedFertilizerList, '']
+                                  [nutrient.genericName]: [...selectedFertilizerList, '']
                                 }));
                               }}
                             >
@@ -885,7 +906,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                             onClick={() => {
                               setSelectedFertilizers(prev => {
                                 const updated = { ...prev };
-                                delete updated[nutrient.name];
+                                delete updated[nutrient.genericName];
                                 return updated;
                               });
                               setFertilizerRates(prev => {
@@ -907,25 +928,25 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                               if (!fertObj) return null;
                               const rate = fertilizerRates[fertName] !== undefined ? fertilizerRates[fertName] : calculateRequirement(nutrient, fertObj).cappedValue;
                               // Main nutrient contribution
-                              const mainPercent = fertObj.nutrientContent[nutrient.name] || 0;
+                              const mainPercent = fertObj.nutrientContent[nutrient.genericName] || 0;
                               const mainAdded = (rate * mainPercent) / 100;
                               return (
                                 <div key={fertName} className="mb-1">
                                   <span className="font-medium">{`Applying ${Math.round(rate)} kg/ha of ${fertName}`}</span>
                                   {mainPercent > 0 && (
-                                    <span>{` adds ${mainAdded.toFixed(1)} ${nutrient.unit} of ${nutrient.name}`}</span>
+                                    <span>{` adds ${mainAdded.toFixed(1)} ${nutrient.unit} of ${nutrient.genericName}`}</span>
                                   )}
                                   {fertObj.contains && fertObj.contains.length > 1 && (
                                     <>
                                       <span> (also adds: </span>
-                                      {fertObj.contains.filter(n => n !== nutrient.name).map((other, i) => {
+                                      {fertObj.contains.filter(n => n !== nutrient.genericName).map((other, i) => {
                                         const nObj = nutrients.find(nu => nu.name === other);
                                         const unit = nObj ? nObj.unit : '';
                                         const percent = typeof fertObj.nutrientContent[other] === 'number' ? fertObj.nutrientContent[other] : 0;
                                         const added = (rate * percent) / 100;
                                         return (
                                           <span key={other}>
-                                            {other}: {added.toFixed(1)} {unit}{i < fertObj.contains.filter(n => n !== nutrient.name).length - 1 ? ', ' : ''}
+                                            {other}: {added.toFixed(1)} {unit}{i < fertObj.contains.filter(n => n !== nutrient.genericName).length - 1 ? ', ' : ''}
                                           </span>
                                         );
                                       })}
@@ -974,8 +995,8 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
             <CardContent className="p-4">
               <h3 className="text-lg font-semibold text-black mb-2 mt-4">Secondary Nutrients</h3>
               {secondaryDeficientNutrients.map((nutrient, idx) => {
-                let availableFertilizers = fertilizers[nutrient.name] || [];
-                if (nutrient.name === 'Nitrate') {
+                let availableFertilizers = fertilizers[nutrient.genericName] || [];
+                if (nutrient.genericName === 'Nitrate') {
                   availableFertilizers = ammoniumNitrateFerts.filter(f => f.n_form.includes('Nitrate')).map(f => ({
                     name: f.name,
                     nutrientContent: {
@@ -1004,7 +1025,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                     description: f.description
                   }));
                 }
-                if (nutrient.name === 'Ammonium') {
+                if (nutrient.genericName === 'Ammonium') {
                   availableFertilizers = ammoniumNitrateFerts.filter(f => f.n_form.includes('Ammonium')).map(f => ({
                     name: f.name,
                     nutrientContent: {
@@ -1033,7 +1054,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                     description: f.description
                   }));
                 }
-                const selectedFertilizerList = selectedFertilizers[nutrient.name] || [];
+                const selectedFertilizerList = selectedFertilizers[nutrient.genericName] || [];
                 const isSelected = selectedFertilizerList.length > 0;
 
                 // Find all nutrients (in order) that have selected this fertilizer
@@ -1043,7 +1064,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                 if (isSelected) {
                   const nutrientsWithThisFert = selectedFertilizerList.map(f => f);
                   if (nutrientsWithThisFert.length > 1) {
-                    isFirstOccurrence = nutrientsWithThisFert[0] === nutrient.name;
+                    isFirstOccurrence = nutrientsWithThisFert[0] === nutrient.genericName;
                     if (!isFirstOccurrence) {
                       duplicateFertilizerNutrient = nutrientsWithThisFert[0];
                       duplicateFertilizerRate = fertilizerRates[nutrientsWithThisFert[0]] || 0;
@@ -1071,10 +1092,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                 // If there are no available fertilizers, show a message
                 if (availableFertilizers.length === 0) {
                   return (
-                    <Card key={nutrient.name} className="bg-white border-gray-200">
+                    <Card key={nutrient.genericName} className="bg-white border-gray-200">
                       <CardContent className="p-4">
                         <div className="mb-2 text-sm text-gray-700">
-                          <strong>{nutrient.name}:</strong> Current: {nutrient.current} {nutrient.unit}, Target: {nutrient.ideal} {nutrient.unit}.<br />
+                          <strong>{nutrient.genericName}:</strong> Current: {nutrient.current} {nutrient.unit}, Target: {nutrient.ideal} {nutrient.unit}.<br />
                           <span className="text-red-600 font-semibold">No fertilizer recommendation available for this nutrient.</span>
                         </div>
                       </CardContent>
@@ -1083,10 +1104,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                 }
 
                 return (
-                  <Card key={nutrient.name} className="bg-white border-gray-200">
+                  <Card key={nutrient.genericName} className="bg-white border-gray-200">
                     <CardContent className="p-4">
                       <div className="mb-2 text-sm text-gray-700">
-                        <strong>{nutrient.name}:</strong> Current: {nutrient.current} {nutrient.unit}, Target: {nutrient.ideal} {nutrient.unit}, Needed: {requirement > 0 ? requirement.toFixed(1) : 0} {nutrient.unit}.<br />
+                        <strong>{nutrient.genericName}:</strong> Current: {nutrient.current} {nutrient.unit}, Target: {nutrient.ideal} {nutrient.unit}, Needed: {requirement > 0 ? requirement.toFixed(1) : 0} {nutrient.unit}.<br />
                         Select a fertilizer below to fulfill this nutrient requirement.<br />
                         {(() => {
                           const deviation = newValue - nutrient.ideal;
@@ -1106,16 +1127,16 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                           // Check if this nutrient was affected by another fertilizer selection
                           let explanation = '';
                           Object.entries(selectedFertilizers).forEach(([otherNutrient, fertList]) => {
-                            if (otherNutrient !== nutrient.name) {
+                            if (otherNutrient !== nutrient.genericName) {
                               fertList.forEach(fertName => {
                                 const fertObj = fertilizers[otherNutrient]?.find(f => f.name === fertName);
-                                if (fertObj && fertObj.contains && fertObj.contains.includes(nutrient.name)) {
-                                  const percent = fertObj.nutrientContent[nutrient.name] || 0;
+                                if (fertObj && fertObj.contains && fertObj.contains.includes(nutrient.genericName)) {
+                                  const percent = fertObj.nutrientContent[nutrient.genericName] || 0;
                                   const rate = fertilizerRates[fertName];
                                   if (rate) {
                                     const added = (rate * percent) / 100;
                                     if (added > 0) {
-                                      explanation += `The value for ${nutrient.name} increased by ${added.toFixed(1)} ${nutrient.unit} because ${otherNutrient} was treated with ${fertObj.name}, which also contains ${nutrient.name}. `;
+                                      explanation += `The value for ${nutrient.genericName} increased by ${added.toFixed(1)} ${nutrient.unit} because ${otherNutrient} was treated with ${fertObj.name}, which also contains ${nutrient.genericName}. `;
                                     }
                                   }
                                 }
@@ -1129,7 +1150,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                         })()}
                       </div>
                       <div className="flex justify-between items-center mb-3">
-                        <h4 className="font-medium text-black">{nutrient.name}</h4>
+                        <h4 className="font-medium text-black">{nutrient.genericName}</h4>
                         <span className="text-sm font-medium text-blue-600">
                           New: {newValue.toFixed(1)}{nutrient.unit}
                         </span>
@@ -1184,23 +1205,23 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                             Object.entries(selectedFertilizers).forEach(([otherNutrient, fertList]) => {
                               if (!Array.isArray(fertList)) return;
                               fertList.forEach(fertName2 => {
-                                if (fertName2 === fertName && otherNutrient === nutrient.name) return;
+                                if (fertName2 === fertName && otherNutrient === nutrient.genericName) return;
                                 const fertObj2 = fertilizers[otherNutrient]?.find(f => f.name === fertName2);
-                                if (fertObj2 && fertObj2.nutrientContent[nutrient.name]) {
-                                  const percent2 = fertObj2.nutrientContent[nutrient.name];
+                                if (fertObj2 && fertObj2.nutrientContent[nutrient.genericName]) {
+                                  const percent2 = fertObj2.nutrientContent[nutrient.genericName];
                                   const rate2 = fertilizerRates[fertName2] !== undefined ? fertilizerRates[fertName2] : 0;
                                   alreadyAdded += (rate2 * percent2) / 100;
                                 }
                               });
                             });
                             const requirement = Math.max(nutrient.ideal - (nutrient.current + alreadyAdded), 0);
-                            const percent = fertObj && fertObj.nutrientContent ? fertObj.nutrientContent[nutrient.name] || 0 : 0;
+                            const percent = fertObj && fertObj.nutrientContent ? fertObj.nutrientContent[nutrient.genericName] || 0 : 0;
                             const uncapped = percent > 0 ? Number(((requirement * 100) / percent).toFixed(1)) : 0;
                             // Warnings
                             let overageWarning = '';
                             if (fertObj && fertObj.recommended && fertObj.contains && fertObj.contains.length > 1) {
                               fertObj.contains.forEach(cont => {
-                                if (cont !== nutrient.name) {
+                                if (cont !== nutrient.genericName) {
                                   const nObj = nutrients.find(nu => nu.name === cont);
                                   if (nObj) {
                                     const added = (requirement * percent) / 100;
@@ -1216,8 +1237,8 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
 
                             // --- FIX: Move dropdown options logic outside JSX ---
                             const sortedFertilizers = [...availableFertilizers].sort((a, b) => {
-                              const aPct = typeof a.nutrientContent[nutrient.name] === 'number' ? a.nutrientContent[nutrient.name] : 0;
-                              const bPct = typeof b.nutrientContent[nutrient.name] === 'number' ? b.nutrientContent[nutrient.name] : 0;
+                              const aPct = typeof a.nutrientContent[nutrient.genericName] === 'number' ? a.nutrientContent[nutrient.genericName] : 0;
+                              const bPct = typeof b.nutrientContent[nutrient.genericName] === 'number' ? b.nutrientContent[nutrient.genericName] : 0;
                               return bPct - aPct;
                             });
                             const fertilizerOptions = sortedFertilizers.map(fert => {
@@ -1266,23 +1287,23 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                               Object.entries(selectedFertilizers).forEach(([otherNutrient, fertList]) => {
                                 if (!Array.isArray(fertList)) return;
                                 fertList.forEach(fertName2 => {
-                                  if (fertName2 === fert.name && otherNutrient === nutrient.name) return;
+                                  if (fertName2 === fert.name && otherNutrient === nutrient.genericName) return;
                                   const fertObj2 = fertilizers[otherNutrient]?.find(f => f.name === fertName2);
-                                  if (fertObj2 && fertObj2.nutrientContent[nutrient.name]) {
-                                    const percent2 = fertObj2.nutrientContent[nutrient.name];
+                                  if (fertObj2 && fertObj2.nutrientContent[nutrient.genericName]) {
+                                    const percent2 = fertObj2.nutrientContent[nutrient.genericName];
                                     const rate2 = fertilizerRates[fertName2] !== undefined ? fertilizerRates[fertName2] : 0;
                                     alreadyAdded += (rate2 * percent2) / 100;
                                   }
                                 });
                               });
                               const requirement = Math.max(nutrient.ideal - (nutrient.current + alreadyAdded), 0);
-                              const percent = fert && fert.nutrientContent ? fert.nutrientContent[nutrient.name] || 0 : 0;
+                              const percent = fert && fert.nutrientContent ? fert.nutrientContent[nutrient.genericName] || 0 : 0;
                               const uncapped = percent > 0 ? Number(((requirement * 100) / percent).toFixed(1)) : 0;
                               // Warnings
                               let overageWarning = '';
                               if (fert && fert.recommended && fert.contains && fert.contains.length > 1) {
                                 fert.contains.forEach(cont => {
-                                  if (cont !== nutrient.name) {
+                                  if (cont !== nutrient.genericName) {
                                     const nObj = nutrients.find(nu => nu.name === cont);
                                     if (nObj) {
                                       const added = (requirement * percent) / 100;
@@ -1372,7 +1393,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                     value={fertName}
                                     onValueChange={value => {
                                       if (selectedFertilizerList.includes(value)) return;
-                                      handleFertilizerSelect(nutrient.name, value, fertIdx, selectedFertilizerList);
+                                      handleFertilizerSelect(nutrient.genericName, value, fertIdx, selectedFertilizerList);
                                     }}
                                   >
                                     <SelectTrigger className="bg-white w-full h-10">
@@ -1411,7 +1432,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                       setSelectedFertilizers(prev => {
                                         const arr = [...selectedFertilizerList];
                                         arr.splice(fertIdx, 1);
-                                        return { ...prev, [nutrient.name]: arr };
+                                        return { ...prev, [nutrient.genericName]: arr };
                                       });
                                     }}
                                   >Remove</Button>
@@ -1427,7 +1448,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                               onClick={() => {
                                 setSelectedFertilizers(prev => ({
                                   ...prev,
-                                  [nutrient.name]: [...selectedFertilizerList, '']
+                                  [nutrient.genericName]: [...selectedFertilizerList, '']
                                 }));
                               }}
                             >
@@ -1441,7 +1462,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                             onClick={() => {
                               setSelectedFertilizers(prev => {
                                 const updated = { ...prev };
-                                delete updated[nutrient.name];
+                                delete updated[nutrient.genericName];
                                 return updated;
                               });
                               setFertilizerRates(prev => {
@@ -1463,25 +1484,25 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                               if (!fertObj) return null;
                               const rate = fertilizerRates[fertName] !== undefined ? fertilizerRates[fertName] : calculateRequirement(nutrient, fertObj).cappedValue;
                               // Main nutrient contribution
-                              const mainPercent = fertObj.nutrientContent[nutrient.name] || 0;
+                              const mainPercent = fertObj.nutrientContent[nutrient.genericName] || 0;
                               const mainAdded = (rate * mainPercent) / 100;
                               return (
                                 <div key={fertName} className="mb-1">
                                   <span className="font-medium">{`Applying ${Math.round(rate)} kg/ha of ${fertName}`}</span>
                                   {mainPercent > 0 && (
-                                    <span>{` adds ${mainAdded.toFixed(1)} ${nutrient.unit} of ${nutrient.name}`}</span>
+                                    <span>{` adds ${mainAdded.toFixed(1)} ${nutrient.unit} of ${nutrient.genericName}`}</span>
                                   )}
                                   {fertObj.contains && fertObj.contains.length > 1 && (
                                     <>
                                       <span> (also adds: </span>
-                                      {fertObj.contains.filter(n => n !== nutrient.name).map((other, i) => {
+                                      {fertObj.contains.filter(n => n !== nutrient.genericName).map((other, i) => {
                                         const nObj = nutrients.find(nu => nu.name === other);
                                         const unit = nObj ? nObj.unit : '';
                                         const percent = typeof fertObj.nutrientContent[other] === 'number' ? fertObj.nutrientContent[other] : 0;
                                         const added = (rate * percent) / 100;
                                         return (
                                           <span key={other}>
-                                            {other}: {added.toFixed(1)} {unit}{i < fertObj.contains.filter(n => n !== nutrient.name).length - 1 ? ', ' : ''}
+                                            {other}: {added.toFixed(1)} {unit}{i < fertObj.contains.filter(n => n !== nutrient.genericName).length - 1 ? ', ' : ''}
                                           </span>
                                         );
                                       })}
