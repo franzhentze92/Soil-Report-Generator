@@ -774,7 +774,8 @@ const SoilReportGenerator: React.FC = () => {
     soilDrenchDefs,
     foliarSprayDefs,
     heading,
-    showSourceBreakdown = true
+    showSourceBreakdown = true,
+    newNutrientLevels = {},
   }) {
     // Helper: get nutrient percent from product definition (never assume 100% unless only one nutrient and no percent specified)
     function getNutrientPercentFromDef(productDef, nutrient) {
@@ -1057,8 +1058,8 @@ const SoilReportGenerator: React.FC = () => {
               const targetPpm = n.ideal;
               // Calculate total applied in ppm (not kg/ha)
               const totalAppliedPpm = totalApplied / 2.4;
-              // New Level (ppm) = original ppm + total applied ppm
-              const newPpm = originalPpm + totalAppliedPpm;
+              // New Level (ppm) = from newNutrientLevels if available, else original + total applied
+              const newPpm = (newNutrientLevels && typeof newNutrientLevels[nutrient] === 'number') ? newNutrientLevels[nutrient] : (originalPpm + totalAppliedPpm);
               let deviation = 0;
               if (targetPpm > 0) {
                 deviation = ((newPpm - targetPpm) / targetPpm) * 100;
@@ -2412,6 +2413,8 @@ const SoilReportGenerator: React.FC = () => {
     return Math.max(Math.min(score, 100), 0);
   }
 
+  const [newNutrientLevels, setNewNutrientLevels] = useState({});
+
   return (
     <div className="w-full max-w-screen-2xl mx-auto">
       {/* TEMP: Render SoilAnalysisChart at the top for testing */}
@@ -2646,6 +2649,7 @@ const SoilReportGenerator: React.FC = () => {
                             foliarSprayDefs={foliarSprayDefs}
                             heading="Nutritional Situation"
                             showSourceBreakdown={false}
+                            newNutrientLevels={newNutrientLevels}
                           />
                         </CardContent>
                       </Card>
@@ -2721,6 +2725,7 @@ const SoilReportGenerator: React.FC = () => {
                           nutrients={unifiedNutrients}
                           soilAmendmentsSummary={soilAmendmentsSummary}
                           setSoilAmendmentsSummary={setSoilAmendmentsSummary}
+                          onNutrientLevelsChange={setNewNutrientLevels}
                         />
                       </CardContent>
                     </Card>
@@ -3045,6 +3050,7 @@ const SoilReportGenerator: React.FC = () => {
                     foliarSprayDefs={foliarSprayDefs}
                     heading="Total Nutrient Recommendation Summary"
                     showSourceBreakdown={false}
+                    newNutrientLevels={newNutrientLevels}
                   />
                 )}
               </ReportSection>
