@@ -5,7 +5,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '.
 import { Input } from './ui/input';
 import { Progress } from './ui/progress';
 import ReportSection from './ReportSection';
-import { CheckCircle, AlertTriangle, Settings } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Settings, ShieldAlert, Gift } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 // Fertilizer definitions (should match those in SoilReportGenerator)
@@ -108,7 +108,35 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
   }
 
   return (
-    <ReportSection title="Soil Corrections" infoContent="Apply corrections for deficient nutrients using the latest soil data. This section is always in sync with the main report.">
+    <ReportSection title="Soil Corrections" infoContent={
+      <>
+        <div className="mb-2 font-semibold text-gray-800">How to use the Soil Corrections section</div>
+        <div className="text-sm text-gray-700 space-y-2">
+          <p><strong>Purpose:</strong> This section helps you correct soil nutrient deficiencies by recommending fertilizers and application rates tailored to your soil test results. The goal is to bring each nutrient up to its optimal target value, while avoiding excessive application that could harm your soil or plants.</p>
+          <p><strong>Nutrient Display:</strong> Nutrients are split into <span className="font-semibold">Main Soil Corrections</span> (the most important nutrients for plant growth, such as Calcium, Magnesium, Potassium, Phosphorus, and Sulphur) and <span className="font-semibold">Secondary Soil Corrections</span> (other essential nutrients). Only nutrients that are currently below their target (deficient) are shown here.</p>
+          <p><strong>Fertilizer Selection:</strong> For each deficient nutrient, you can select one or more fertilizers from a dropdown menu. Each fertilizer option shows its nutrient content, a recommended application rate, and special icons/colors to help you choose safely:</p>
+          <ul className="list-disc ml-6">
+            <li><span className="inline-flex items-center"><CheckCircle className="inline h-4 w-4 text-green-500 mr-1" /> <span className="text-green-700 font-semibold">Green check:</span></span> Safe to use at the recommended rate.</li>
+            <li><span className="inline-flex items-center"><Gift className="inline h-4 w-4 text-purple-600 mr-1" /> <span className="text-purple-700 font-semibold">Purple bonus:</span></span> This fertilizer fulfills the requirement for another nutrient and is capped to avoid excess. The rate shown is the maximum safe rate for all nutrients it contains.</li>
+            <li><span className="inline-flex items-center"><ShieldAlert className="inline h-4 w-4 text-red-600 mr-1" /> <span className="text-red-700 font-semibold">Red risk:</span></span> No safe rate: any application would push a nutrient above its safe limit.</li>
+          </ul>
+          <p><strong>Application Rate:</strong> The recommended rate is calculated to bring the nutrient up to its target. If a fertilizer contains multiple nutrients, the rate may be <span className="font-semibold">capped</span> (limited) to avoid exceeding the safe limit for any nutrient. If capped, the dropdown will show which nutrient is limiting and why.</p>
+          <p><strong>Progress Bars:</strong> Each nutrient card shows four progress bars:
+            <ul className="list-disc ml-6">
+              <li><span className="font-semibold">Original:</span> Your current soil value.</li>
+              <li><span className="font-semibold">New:</span> The value after applying selected fertilizers.</li>
+              <li><span className="font-semibold">Requirement:</span> The amount still needed to reach the target.</li>
+              <li><span className="font-semibold">Target:</span> The optimal value for healthy plant growth.</li>
+            </ul>
+            The color of the "New" bar turns green if within ±25% of the target, or red if outside this range.
+          </p>
+          <p><strong>Adjustable Parameters:</strong> You can adjust the <span className="font-semibold">Max Allowed Excess (%)</span> using the settings button (gear icon) at the top right. This controls how much above the target value a nutrient is allowed to go when applying fertilizers. Lowering this value makes recommendations more conservative; raising it allows more flexibility but increases risk of excess.</p>
+          <p><strong>Objectives:</strong> The main objective is to correct deficiencies without causing excess. The system automatically calculates safe rates and warns you if a fertilizer could cause a problem. You can add, remove, or adjust fertilizers and rates as needed.</p>
+          <p><strong>Other Details:</strong> The section updates in real time as you make changes. You can see a breakdown of how much each fertilizer contributes to each nutrient, and a summary of selected fertilizers. If all nutrients are optimal, the section will let you know that no corrections are needed.</p>
+          <p>If you are new to soil science or fertilizer management, don't worry! The icons, colors, and warnings are designed to guide you safely. Hover over icons or read the messages for more information. If in doubt, consult a local agronomist or soil expert.</p>
+        </div>
+      </>
+    }>
       <div className="flex justify-end items-center mb-2">
         <Popover>
           <PopoverTrigger asChild>
@@ -116,7 +144,7 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
               <Settings className="h-5 w-5 text-gray-600" />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-64">
+          <PopoverContent className="w-64" style={{ maxHeight: '350px', overflowY: 'auto' }}>
             <div className="mb-2 font-semibold text-gray-800">Max Allowed Excess (%)</div>
             <input
               type="range"
@@ -480,15 +508,15 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                                   // --- Determine color and icon ---
                                   let icon, nameClass, rateClass, message;
                                   if (cappedRate === 0) {
-                                    icon = <AlertTriangle className="h-4 w-4 text-red-600" />;
+                                    icon = <ShieldAlert className="h-4 w-4 text-red-600" />;
                                     nameClass = "text-red-700 hover:underline font-medium";
                                     rateClass = "text-xs text-red-700 ml-2";
                                     message = <span className="text-xs text-red-600">No safe rate: any application would push {limitingNutrient} above the {maxAllowedExcess}% excess limit.</span>;
-                                  } else if (wouldExceed) {
-                                    icon = <AlertTriangle className="h-4 w-4 text-yellow-600" />;
-                                    nameClass = "text-yellow-700 hover:underline font-medium";
-                                    rateClass = "text-xs text-yellow-700 ml-2";
-                                    message = <span className="text-xs text-yellow-700">Warning: would push {exceedNutrient} to {exceedAmount.toFixed(1)}% above target (limit: {maxAllowedExcess}%)</span>;
+                                  } else if (cappedRate < uncappedRate && cappedRate > 0) {
+                                    icon = <Gift className="h-4 w-4 text-purple-600" />;
+                                    nameClass = "text-purple-700 hover:underline font-medium";
+                                    rateClass = "text-xs text-purple-700 ml-2";
+                                    message = <span className="text-xs text-purple-700">Bonus: This fertilizer fulfills the requirement for {limitingNutrient} and is capped to avoid excess.</span>;
                                   } else {
                                     icon = <CheckCircle className="h-4 w-4 text-green-500" />;
                                     nameClass = "text-blue-700 hover:underline font-medium";
@@ -528,7 +556,7 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                             <Input
                               type="number"
                               min={0}
-                              value={sel.rate}
+                              value={(!sel.fertLabel || sel.fertLabel === 'none') ? '' : sel.rate}
                               onChange={e => {
                                 const rate = Number(e.target.value);
                                 setFertSelections(prev => {

@@ -6,7 +6,6 @@ import { Settings } from 'lucide-react';
 import SoilUpload from './SoilUpload';
 import NutrientSummary from './NutrientSummary';
 import GeneralComments from './GeneralComments';
-import SoilAmendments from './SoilAmendments';
 import SeedTreatment, { PlantingBlend } from './SeedTreatment';
 import SoilDrench from './SoilDrench';
 import FoliarSpray from './FoliarSpray';
@@ -2726,7 +2725,7 @@ const SoilReportGenerator: React.FC = () => {
                       </CardContent>
                     </Card>
                     {/* a. Soil Amendments */}
-                    <Card className="bg-white">
+                    {/* <Card className="bg-white">
                       <CardHeader><CardTitle className="text-black">Soil Amendments</CardTitle></CardHeader>
                       <CardContent>
                         <SoilAmendments
@@ -2740,7 +2739,7 @@ const SoilReportGenerator: React.FC = () => {
                           onSummaryChange={setSoilAmendmentsSummary}
                         />
                       </CardContent>
-                    </Card>
+                    </Card> */}
                     {/* b. Seed Treatment */}
                     <Card className="bg-white">
                       <CardHeader><CardTitle className="text-black">Seed Treatment</CardTitle></CardHeader>
