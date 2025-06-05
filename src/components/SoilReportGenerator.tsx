@@ -28,6 +28,7 @@ import DeviationBarChart from './DeviationBarChart';
 import { DeviationBarChart as DeviationBarChartComponent, AbsoluteValueBarChart } from './DeviationBarChart';
 import { ReferenceArea, Legend } from 'recharts';
 import SoilAnalysisChart from './SoilAnalysisChart';
+import SoilCorrections from './SoilCorrections';
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 // Add this at the top of the file, before mockNutrients
@@ -1375,10 +1376,86 @@ const SoilReportGenerator: React.FC = () => {
 
   // Patch NutrientThresholdsPopup
   const NutrientThresholdsPopup = ({ nutrients, colorThresholds, setColorThresholds, zoneSensitivity, setZoneSensitivity, onClose }) => {
+    // Use color_thresholds for default values (user-provided mapping)
+    const color_thresholds = {
+      "CEC": { deficient_threshold: 50, excessive_threshold: 100 },
+      "TEC": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Paramagnetism": { deficient_threshold: 50, excessive_threshold: 100 },
+      "pH_level_1_5_water": { deficient_threshold: 50, excessive_threshold: 115 },
+      "Organic_Matter_Calc": { deficient_threshold: 50, excessive_threshold: 150 },
+      "Organic_Carbon_LECO": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Conductivity_1_5_water": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Ca_Mg_Ratio": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Nitrate_N_KCl": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Ammonium_N_KCl": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Phosphorus_Mehlich_III": { deficient_threshold: 30, excessive_threshold: 60 },
+      "Calcium_Mehlich_III": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Magnesium_Mehlich_III": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Potassium_Mehlich_III": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Sodium_Mehlich_III": { deficient_threshold: 35, excessive_threshold: 100 },
+      "Sulfur_KCl": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Chloride": { deficient_threshold: 35, excessive_threshold: 50 },
+      "Aluminium": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Silicon_CaCl2": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Boron_Hot_CaCl2": { deficient_threshold: 30, excessive_threshold: 150 },
+      "Iron_DTPA": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Manganese_DTPA": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Copper_DTPA": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Zinc_DTPA": { deficient_threshold: 50, excessive_threshold: 100 },
+      "Calcium": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Magnesium": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Potassium": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Sodium": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Aluminum": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Hydrogen": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Other_Bases": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Calcium_LaMotte": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Magnesium_LaMotte": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Phosphorus_LaMotte": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Potassium_LaMotte": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Sodium_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Potassium_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Calcium_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Magnesium_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Phosphorus_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Aluminium_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Copper_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Iron_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Manganese_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Selenium_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Zinc_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Boron_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Silicon_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Cobalt_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Molybdenum_TAE": { deficient_threshold: 35, excessive_threshold: 70 },
+      "Sulfur_TAE": { deficient_threshold: 35, excessive_threshold: 70 }
+    };
     const [localThresholds, setLocalThresholds] = useState(() => {
       const obj = {};
+      // Alias mapping for common nutrient name variants
+      const aliasMap = {
+        'Aluminum': 'Aluminium',
+        'Aluminium': 'Aluminum',
+        'Other_Bases': 'Other Bases',
+        'Other Bases': 'Other_Bases',
+        // Add more aliases as needed
+      };
       nutrients.forEach(n => {
-        const th = colorThresholds && typeof colorThresholds[n] === 'object' && colorThresholds[n] !== null ? colorThresholds[n] : colorThresholds['default'];
+        // 1. Try exact key
+        let th = (colorThresholds && typeof colorThresholds[n] === 'object' && colorThresholds[n] !== null)
+          ? colorThresholds[n]
+          : color_thresholds[n];
+        // 2. Try case-insensitive match
+        if (!th) {
+          const lowerKey = Object.keys(color_thresholds).find(k => k.toLowerCase() === n.toLowerCase());
+          if (lowerKey) th = color_thresholds[lowerKey];
+        }
+        // 3. Try alias mapping
+        if (!th && aliasMap[n]) {
+          th = color_thresholds[aliasMap[n]];
+        }
+        // 4. Fallback to default
+        if (!th) th = color_thresholds['default'];
         obj[n] = (typeof th === 'object' && th !== null) ? th : {};
       });
       return obj;
@@ -2637,6 +2714,17 @@ const SoilReportGenerator: React.FC = () => {
               <ReportSection title="3. Product Recommendation" collapsible expanded={showSection3} onToggle={() => setShowSection3(v => !v)} useHideButton={true} infoContent={"Select and review recommended products for soil amendments, seed treatment, planting blends, biological fertigation, and foliar sprays. Adjust rates and options as needed."}>
                 {showSection3 && (
                   <div className="space-y-6">
+                    {/* Soil Corrections (new, always in sync) */}
+                    <Card className="bg-white">
+                      <CardHeader><CardTitle className="text-black">Soil Corrections (NEW)</CardTitle></CardHeader>
+                      <CardContent>
+                        <SoilCorrections
+                          nutrients={unifiedNutrients}
+                          soilAmendmentsSummary={soilAmendmentsSummary}
+                          setSoilAmendmentsSummary={setSoilAmendmentsSummary}
+                        />
+                      </CardContent>
+                    </Card>
                     {/* a. Soil Amendments */}
                     <Card className="bg-white">
                       <CardHeader><CardTitle className="text-black">Soil Amendments</CardTitle></CardHeader>

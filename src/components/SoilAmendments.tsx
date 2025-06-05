@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ReportSection from './ReportSection';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -161,6 +161,59 @@ const allowedSoilAmendmentNames = [
   'Zinc_DTPA'
 ];
 
+// Add color_thresholds at the top
+const color_thresholds = {
+  "default": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Paramagnetism": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "pH-level (1:5 water)": { "deficient_threshold": 10, "excessive_threshold": 10 },
+  "Organic Matter (Calc)": { "deficient_threshold": 50, "excessive_threshold": 30 },
+  "Organic Carbon (LECO)": { "deficient_threshold": 50, "excessive_threshold": 30 },
+  "Conductivity (1:5 water)": { "deficient_threshold": 60, "excessive_threshold": 30 },
+  "Ca/Mg Ratio": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Nitrate-N (KCl)": { "deficient_threshold": 50, "excessive_threshold": 50 },
+  "Ammonium-N (KCl)": { "deficient_threshold": 50, "excessive_threshold": 50 },
+  "Phosphorus (Mehlich III)": { "deficient_threshold": 40, "excessive_threshold": 40 },
+  "Calcium (Mehlich III)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Magnesium (Mehlich III)": { "deficient_threshold": 30, "excessive_threshold": 25 },
+  "Potassium (Mehlich III)": { "deficient_threshold": 20, "excessive_threshold": 25 },
+  "Sodium (Mehlich III)": { "deficient_threshold": 20, "excessive_threshold": 20 },
+  "Sulfur (KCl)": { "deficient_threshold": 40, "excessive_threshold": 40 },
+  "Aluminium": { "deficient_threshold": 0, "excessive_threshold": 20 },
+  "Silicon (CaCl2)": { "deficient_threshold": 40, "excessive_threshold": 40 },
+  "Boron (Hot CaCl2)": { "deficient_threshold": 40, "excessive_threshold": 40 },
+  "Iron (DTPA)": { "deficient_threshold": 40, "excessive_threshold": 40 },
+  "Manganese (DTPA)": { "deficient_threshold": 40, "excessive_threshold": 40 },
+  "Copper (DTPA)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Zinc (DTPA)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Calcium (Base Saturation)": { "deficient_threshold": 20, "excessive_threshold": 20 },
+  "Magnesium (Base Saturation)": { "deficient_threshold": 20, "excessive_threshold": 20 },
+  "Potassium (Base Saturation)": { "deficient_threshold": 20, "excessive_threshold": 20 },
+  "Sodium (Base Saturation)": { "deficient_threshold": 10, "excessive_threshold": 10 },
+  "Aluminum (Base Saturation)": { "deficient_threshold": 0, "excessive_threshold": 20 },
+  "Hydrogen (Base Saturation)": { "deficient_threshold": 0, "excessive_threshold": 20 },
+  "Other Bases (Base Saturation)": { "deficient_threshold": 0, "excessive_threshold": 20 },
+  "Calcium (LaMotte)": { "deficient_threshold": 25, "excessive_threshold": 25 },
+  "Magnesium (LaMotte)": { "deficient_threshold": 20, "excessive_threshold": 25 },
+  "Phosphorus (LaMotte)": { "deficient_threshold": 25, "excessive_threshold": 25 },
+  "Potassium (LaMotte)": { "deficient_threshold": 25, "excessive_threshold": 40 },
+  "Sodium (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Potassium (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Calcium (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Magnesium (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Phosphorus (TAE)": { "deficient_threshold": 40, "excessive_threshold": 40 },
+  "Aluminium (TAE)": { "deficient_threshold": 20, "excessive_threshold": 20 },
+  "Copper (TAE)": { "deficient_threshold": 25, "excessive_threshold": 25 },
+  "Iron (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Manganese (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Selenium (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Zinc (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Boron (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Silicon (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Cobalt (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Molybdenum (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+  "Sulfur (TAE)": { "deficient_threshold": 30, "excessive_threshold": 30 },
+};
+
 const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFertilizers, setSelectedFertilizers, fertilizerRates, setFertilizerRates, allowedExcessPercent, setAllowedExcessPercent, onSummaryChange }) => {
   // Debug: Log nutrients and deficient nutrients
   console.log('SoilAmendments nutrients prop:', nutrients);
@@ -277,7 +330,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
         const fertObj = (fertilizers[nutrient.name] || []).find(f => f.name === fertilizerName);
         if (!fertObj) return prevRates; // Only set if fertilizer found
         const tempNutrient = { ...nutrient, current: currentValueForThisDropdown };
-        const { cappedValue, capSentence, limitingWarning } = calculateRequirement(tempNutrient, fertObj);
+        const { cappedValue } = calculateRequirement(tempNutrient, fertObj);
         return { ...prevRates, [fertilizerName]: cappedValue };
       });
       return {
@@ -291,27 +344,38 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
     setFertilizerRates(prev => ({ ...prev, [fertilizerName]: newRate }));
   };
 
-  const calculateTotalNewValue = (nutrient: Nutrient) => {
-    let totalAdded = 0;
-    Object.entries(selectedFertilizers).forEach(([selectedFor, fertList]) => {
-      if (!Array.isArray(fertList)) return;
-      fertList.forEach(fertName => {
-        const fertObj = fertilizers[selectedFor]?.find(f => f.name === fertName);
-        if (fertObj && fertObj.contains && fertObj.contains.includes(nutrient.name)) {
-          const percent = fertObj.nutrientContent[nutrient.name] || 0;
-          let rate = fertilizerRates[fertName];
-          if (rate === undefined) {
-            // Use capped value if not set
-            const nObj = nutrients.find(n => n.name === selectedFor) || defaultNutrient;
-            rate = calculateRequirement(nObj, fertObj).cappedValue;
+  // --- NEW: Memoized map of all new values for all nutrients ---
+  const allNewValues = useMemo(() => {
+    const map: Record<string, number> = {};
+    nutrients.forEach(nutrient => {
+      let totalAdded = 0;
+      Object.entries(selectedFertilizers).forEach(([selectedFor, fertList]) => {
+        if (!Array.isArray(fertList)) return;
+        fertList.forEach(fertName => {
+          const fertObj = fertilizers[selectedFor]?.find(f => f.name === fertName);
+          if (fertObj && fertObj.contains && fertObj.contains.includes(nutrient.name)) {
+            const percent = fertObj.nutrientContent[nutrient.name] || 0;
+            let rate = fertilizerRates[fertName];
+            if (rate === undefined) {
+              const nObj = nutrients.find(n => n.name === selectedFor) || defaultNutrient;
+              rate = calculateRequirement(nObj, fertObj).cappedValue;
+            }
+            totalAdded += (rate * percent) / 100;
           }
-          totalAdded += (rate * percent) / 100;
-        }
+        });
       });
+      // Convert current ppm to kg/ha, add totalAdded (kg/ha), then convert back to ppm
+      const currentKgHa = nutrient.current * 2.4;
+      const newKgHa = currentKgHa + totalAdded;
+      map[nutrient.name] = newKgHa / 2.4;
     });
-    // Convert totalAdded (kg/ha) to ppm before adding to current (ppm)
-    return nutrient.current + (totalAdded / 2.4);
-  };
+    return map;
+  }, [nutrients, selectedFertilizers, fertilizerRates]);
+
+  // Debug: Log selectedFertilizers, fertilizerRates, and allNewValues
+  console.log('selectedFertilizers:', JSON.stringify(selectedFertilizers, null, 2));
+  console.log('fertilizerRates:', JSON.stringify(fertilizerRates, null, 2));
+  console.log('allNewValues:', JSON.stringify(allNewValues, null, 2));
 
   // Build a summary for all nutrients contributed by all selected fertilizers
   const selectedFertilizerDetails = [];
@@ -501,7 +565,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                     description: f.description
                   }));
                 }
-                const selectedFertilizerList = selectedFertilizers[nutrient.genericName] || [];
+                const selectedFertilizerList = selectedFertilizers[nutrient.name] || [];
                 const isSelected = selectedFertilizerList.length > 0;
 
                 // Find all nutrients (in order) that have selected this fertilizer
@@ -523,7 +587,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                 const currentRate = duplicateFertilizerRate != null
                   ? duplicateFertilizerRate
                   : (fertilizerRates[selectedFertilizerList[0]] || 0);
-                const newValue = calculateTotalNewValue(nutrient);
+                const newValue = allNewValues[nutrient.name];
                 const requirement = nutrient.ideal - nutrient.current;
 
                 // In the dropdown, show a warning if the main nutrient requirement is not fully met due to any cap
@@ -560,9 +624,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                           const deviation = newValue - nutrient.ideal;
                           const percentDiff = ((newValue - nutrient.ideal) / nutrient.ideal) * 100;
                           const deviationKgHa = (Number(ppmToKgHa(newValue)) - Number(ppmToKgHa(nutrient.ideal))).toFixed(1);
+                          const thresholds = color_thresholds[nutrient.name] || color_thresholds["default"];
                           let deviationColor = 'text-green-700 font-semibold';
-                          if (percentDiff < -25) deviationColor = 'text-red-600 font-semibold';
-                          else if (percentDiff > 25) deviationColor = 'text-blue-700 font-bold';
+                          if (percentDiff < -thresholds.deficient_threshold) deviationColor = 'text-red-600 font-semibold';
+                          else if (percentDiff > thresholds.excessive_threshold) deviationColor = 'text-blue-700 font-bold';
                           return (
                             <span className={`text-xs ${deviationColor}`}>
                               Deviation: {percentDiff >= 0 ? '+' : ''}{percentDiff.toFixed(1)}% (
@@ -615,9 +680,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                             <Progress
                               value={Math.min((newValue / nutrient.ideal) * 100, 100)}
                               className={`h-2 flex-1 ${(() => {
+                                const thresholds = color_thresholds[nutrient.name] || color_thresholds["default"];
                                 const percentDiff = ((newValue - nutrient.ideal) / nutrient.ideal) * 100;
-                                if (percentDiff > 25) return '[&>div]:bg-blue-600';
-                                if (percentDiff < -25) return '[&>div]:bg-red-600';
+                                if (percentDiff > thresholds.excessive_threshold) return '[&>div]:bg-blue-600';
+                                if (percentDiff < -thresholds.deficient_threshold) return '[&>div]:bg-red-600';
                                 return '[&>div]:bg-green-500';
                               })()}`}
                             />
@@ -840,7 +906,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                     value={fertName}
                                     onValueChange={value => {
                                       if (selectedFertilizerList.includes(value)) return;
-                                      handleFertilizerSelect(nutrient.genericName, value, fertIdx, selectedFertilizerList);
+                                      handleFertilizerSelect(nutrient.name, value, fertIdx, selectedFertilizerList);
                                     }}
                                   >
                                     <SelectTrigger className="bg-white w-full h-10">
@@ -857,16 +923,11 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                   <div className="flex items-center gap-1">
                                     <Input
                                       type="number"
-                                      value={(() => {
-                                        if (!fertName || !fertObj) return '';
-                                        const capped = calculateRequirement(nutrient, fertObj).cappedValue;
-                                        // Always use capped value as default, even if user previously changed it
-                                        return capped;
-                                      })()}
+                                      value={fertilizerRates[fertName] !== undefined ? fertilizerRates[fertName] : cappedValue}
                                       onChange={e => handleRateChange(fertName, Number(e.target.value))}
                                       placeholder="Enter rate"
                                       className="bg-white h-10 w-20"
-                                      disabled={!isFirstOccurrence && fertIdx === 0}
+                                      disabled={cappedValue === 0 && uncapped > 0}
                                     />
                                   </div>
                                 </div>
@@ -879,7 +940,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                       setSelectedFertilizers(prev => {
                                         const arr = [...selectedFertilizerList];
                                         arr.splice(fertIdx, 1);
-                                        return { ...prev, [nutrient.genericName]: arr };
+                                        return { ...prev, [nutrient.name]: arr };
                                       });
                                     }}
                                   >Remove</Button>
@@ -895,7 +956,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                               onClick={() => {
                                 setSelectedFertilizers(prev => ({
                                   ...prev,
-                                  [nutrient.genericName]: [...selectedFertilizerList, '']
+                                  [nutrient.name]: [...selectedFertilizerList, '']
                                 }));
                               }}
                             >
@@ -909,7 +970,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                             onClick={() => {
                               setSelectedFertilizers(prev => {
                                 const updated = { ...prev };
-                                delete updated[nutrient.genericName];
+                                delete updated[nutrient.name];
                                 return updated;
                               });
                               setFertilizerRates(prev => {
@@ -968,9 +1029,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                 const deviation = newValue - nutrient.ideal;
                                 const percentDiff = ((newValue - nutrient.ideal) / nutrient.ideal) * 100;
                                 const deviationKgHa = (Number(ppmToKgHa(newValue)) - Number(ppmToKgHa(nutrient.ideal))).toFixed(1);
+                                const thresholds = color_thresholds[nutrient.name] || color_thresholds["default"];
                                 let deviationColor = 'text-green-700 font-semibold';
-                                if (percentDiff < -25) deviationColor = 'text-red-600 font-semibold';
-                                else if (percentDiff > 25) deviationColor = 'text-blue-700 font-bold';
+                                if (percentDiff < -thresholds.deficient_threshold) deviationColor = 'text-red-600 font-semibold';
+                                else if (percentDiff > thresholds.excessive_threshold) deviationColor = 'text-blue-700 font-bold';
                                 return (
                                   <span className={`text-xs ${deviationColor}`}>
                                     Deviation: {percentDiff >= 0 ? '+' : ''}{percentDiff.toFixed(1)}% (
@@ -1057,7 +1119,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                     description: f.description
                   }));
                 }
-                const selectedFertilizerList = selectedFertilizers[nutrient.genericName] || [];
+                const selectedFertilizerList = selectedFertilizers[nutrient.name] || [];
                 const isSelected = selectedFertilizerList.length > 0;
 
                 // Find all nutrients (in order) that have selected this fertilizer
@@ -1079,7 +1141,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                 const currentRate = duplicateFertilizerRate != null
                   ? duplicateFertilizerRate
                   : (fertilizerRates[selectedFertilizerList[0]] || 0);
-                const newValue = calculateTotalNewValue(nutrient);
+                const newValue = allNewValues[nutrient.name];
                 const requirement = nutrient.ideal - nutrient.current;
 
                 // In the dropdown, show a warning if the main nutrient requirement is not fully met due to any cap
@@ -1116,9 +1178,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                           const deviation = newValue - nutrient.ideal;
                           const percentDiff = ((newValue - nutrient.ideal) / nutrient.ideal) * 100;
                           const deviationKgHa = (Number(ppmToKgHa(newValue)) - Number(ppmToKgHa(nutrient.ideal))).toFixed(1);
+                          const thresholds = color_thresholds[nutrient.name] || color_thresholds["default"];
                           let deviationColor = 'text-green-700 font-semibold';
-                          if (percentDiff < -25) deviationColor = 'text-red-600 font-semibold';
-                          else if (percentDiff > 25) deviationColor = 'text-blue-700 font-bold';
+                          if (percentDiff < -thresholds.deficient_threshold) deviationColor = 'text-red-600 font-semibold';
+                          else if (percentDiff > thresholds.excessive_threshold) deviationColor = 'text-blue-700 font-bold';
                           return (
                             <span className={`text-xs ${deviationColor}`}>
                               Deviation: {percentDiff >= 0 ? '+' : ''}{percentDiff.toFixed(1)}% (
@@ -1171,9 +1234,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                             <Progress
                               value={Math.min((newValue / nutrient.ideal) * 100, 100)}
                               className={`h-2 flex-1 ${(() => {
+                                const thresholds = color_thresholds[nutrient.name] || color_thresholds["default"];
                                 const percentDiff = ((newValue - nutrient.ideal) / nutrient.ideal) * 100;
-                                if (percentDiff > 25) return '[&>div]:bg-blue-600';
-                                if (percentDiff < -25) return '[&>div]:bg-red-600';
+                                if (percentDiff > thresholds.excessive_threshold) return '[&>div]:bg-blue-600';
+                                if (percentDiff < -thresholds.deficient_threshold) return '[&>div]:bg-red-600';
                                 return '[&>div]:bg-green-500';
                               })()}`}
                             />
@@ -1396,7 +1460,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                     value={fertName}
                                     onValueChange={value => {
                                       if (selectedFertilizerList.includes(value)) return;
-                                      handleFertilizerSelect(nutrient.genericName, value, fertIdx, selectedFertilizerList);
+                                      handleFertilizerSelect(nutrient.name, value, fertIdx, selectedFertilizerList);
                                     }}
                                   >
                                     <SelectTrigger className="bg-white w-full h-10">
@@ -1413,16 +1477,11 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                   <div className="flex items-center gap-1">
                                     <Input
                                       type="number"
-                                      value={(() => {
-                                        if (!fertName || !fertObj) return '';
-                                        const capped = calculateRequirement(nutrient, fertObj).cappedValue;
-                                        // Always use capped value as default, even if user previously changed it
-                                        return capped;
-                                      })()}
+                                      value={fertilizerRates[fertName] !== undefined ? fertilizerRates[fertName] : cappedValue}
                                       onChange={e => handleRateChange(fertName, Number(e.target.value))}
                                       placeholder="Enter rate"
                                       className="bg-white h-10 w-20"
-                                      disabled={!isFirstOccurrence && fertIdx === 0}
+                                      disabled={cappedValue === 0 && uncapped > 0}
                                     />
                                   </div>
                                 </div>
@@ -1435,7 +1494,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                       setSelectedFertilizers(prev => {
                                         const arr = [...selectedFertilizerList];
                                         arr.splice(fertIdx, 1);
-                                        return { ...prev, [nutrient.genericName]: arr };
+                                        return { ...prev, [nutrient.name]: arr };
                                       });
                                     }}
                                   >Remove</Button>
@@ -1451,7 +1510,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                               onClick={() => {
                                 setSelectedFertilizers(prev => ({
                                   ...prev,
-                                  [nutrient.genericName]: [...selectedFertilizerList, '']
+                                  [nutrient.name]: [...selectedFertilizerList, '']
                                 }));
                               }}
                             >
@@ -1465,7 +1524,7 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                             onClick={() => {
                               setSelectedFertilizers(prev => {
                                 const updated = { ...prev };
-                                delete updated[nutrient.genericName];
+                                delete updated[nutrient.name];
                                 return updated;
                               });
                               setFertilizerRates(prev => {
@@ -1524,9 +1583,10 @@ const SoilAmendments: React.FC<SoilAmendmentsProps> = ({ nutrients, selectedFert
                                 const deviation = newValue - nutrient.ideal;
                                 const percentDiff = ((newValue - nutrient.ideal) / nutrient.ideal) * 100;
                                 const deviationKgHa = (Number(ppmToKgHa(newValue)) - Number(ppmToKgHa(nutrient.ideal))).toFixed(1);
+                                const thresholds = color_thresholds[nutrient.name] || color_thresholds["default"];
                                 let deviationColor = 'text-green-700 font-semibold';
-                                if (percentDiff < -25) deviationColor = 'text-red-600 font-semibold';
-                                else if (percentDiff > 25) deviationColor = 'text-blue-700 font-bold';
+                                if (percentDiff < -thresholds.deficient_threshold) deviationColor = 'text-red-600 font-semibold';
+                                else if (percentDiff > thresholds.excessive_threshold) deviationColor = 'text-blue-700 font-bold';
                                 return (
                                   <span className={`text-xs ${deviationColor}`}>
                                     Deviation: {percentDiff >= 0 ? '+' : ''}{percentDiff.toFixed(1)}% (
