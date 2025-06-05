@@ -2715,7 +2715,7 @@ const SoilReportGenerator: React.FC = () => {
                   <div className="space-y-6">
                     {/* Soil Corrections (new, always in sync) */}
                     <Card className="bg-white">
-                      <CardHeader><CardTitle className="text-black">Soil Corrections (NEW)</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-black">Soil Corrections</CardTitle></CardHeader>
                       <CardContent>
                         <SoilCorrections
                           nutrients={unifiedNutrients}
