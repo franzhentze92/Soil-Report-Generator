@@ -313,7 +313,6 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                         // Now, for each other nutrient in the fertilizer, calculate the max rate that keeps it <= 115% of target
                         let cappedRate = uncappedRate;
                         let limitingNutrient = null;
-                        let limitingReason = '';
                         Object.entries(fert.nutrientContent).forEach(([otherNutrient, pct]) => {
                           if (!pct || otherNutrient === (nutrient.genericName || nutrient.name)) return;
                           // Find the nutrient object
@@ -340,7 +339,6 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                           if (maxRate < cappedRate) {
                             cappedRate = Math.max(0, Number(maxRate.toFixed(1)));
                             limitingNutrient = otherNutrient;
-                            limitingReason = `Full rate to reach target is ${uncappedRate} kg/ha, but capped at ${cappedRate} kg/ha due to ${otherNutrient} exceeding target by more than ${maxAllowedExcess}%`;
                           }
                         });
                         recommendedRate = cappedRate;
@@ -348,7 +346,7 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                         sel._uncappedRate = uncappedRate;
                         sel._cappedRate = cappedRate;
                         sel._limitingNutrient = limitingNutrient;
-                        sel._limitingReason = limitingReason;
+                        sel._limitingReason = limitingNutrient ? `Full rate to reach target is ${uncappedRate} kg/ha, but capped at ${cappedRate} kg/ha due to ${limitingNutrient} exceeding target by more than ${maxAllowedExcess}%` : '';
                       }
                       // Check if this fertilizer would cause any nutrient to exceed maxAllowedExcess
                       let wouldExceed = false;
@@ -375,12 +373,14 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                         const addedByThis = (recommendedRate * pct) / 100 / 2.4;
                         const newValue = nObj.current + alreadyAdded + addedByThis;
                         const maxAllowed = nObj.ideal * (1 + maxAllowedExcess / 100);
-                        if (newValue > maxAllowed) {
+                        const EPSILON = 1e-6;
+                        if (newValue > maxAllowed + EPSILON) {
                           wouldExceed = true;
                           exceedNutrient = otherNutrient;
                           exceedAmount = ((newValue - nObj.ideal) / nObj.ideal) * 100;
                         }
                       });
+                      // ... existing code for rendering selector ...
                       return (
                         <div key={idx} className="flex gap-4 items-end mb-2">
                           <div className="flex-1">
@@ -463,6 +463,7 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                                   let wouldExceed = false;
                                   let exceedNutrient = '';
                                   let exceedAmount = 0;
+                                  const EPSILON = 1e-6;
                                   Object.entries(fert.nutrientContent).forEach(([otherNutrient, pct]) => {
                                     if (!pct) return;
                                     const nObj = nutrients.find(nu => (nu.genericName || nu.name) === otherNutrient);
@@ -470,41 +471,51 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                                     const addedByThis = (recommendedRate * pct) / 100 / 2.4;
                                     const newValue = nObj.current + addedByThis;
                                     const maxAllowed = nObj.ideal * (1 + maxAllowedExcess / 100);
-                                    if (newValue > maxAllowed) {
+                                    if (newValue > maxAllowed + EPSILON) {
                                       wouldExceed = true;
                                       exceedNutrient = otherNutrient;
                                       exceedAmount = ((newValue - nObj.ideal) / nObj.ideal) * 100;
                                     }
                                   });
+                                  // --- Determine color and icon ---
+                                  let icon, nameClass, rateClass, message;
+                                  if (cappedRate === 0) {
+                                    icon = <AlertTriangle className="h-4 w-4 text-red-600" />;
+                                    nameClass = "text-red-700 hover:underline font-medium";
+                                    rateClass = "text-xs text-red-700 ml-2";
+                                    message = <span className="text-xs text-red-600">No safe rate: any application would push {limitingNutrient} above the {maxAllowedExcess}% excess limit.</span>;
+                                  } else if (wouldExceed) {
+                                    icon = <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+                                    nameClass = "text-yellow-700 hover:underline font-medium";
+                                    rateClass = "text-xs text-yellow-700 ml-2";
+                                    message = <span className="text-xs text-yellow-700">Warning: would push {exceedNutrient} to {exceedAmount.toFixed(1)}% above target (limit: {maxAllowedExcess}%)</span>;
+                                  } else {
+                                    icon = <CheckCircle className="h-4 w-4 text-green-500" />;
+                                    nameClass = "text-blue-700 hover:underline font-medium";
+                                    rateClass = "text-xs text-green-700 ml-2";
+                                    message = null;
+                                  }
                                   return (
                                     <SelectItem key={fert.label} value={fert.label} /* never disabled */>
                                       <div className="flex flex-col gap-0.5">
                                         <div className="flex items-center gap-2">
-                                          {wouldExceed ? (
-                                            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                                          ) : isRecommended && !isLowContent ? (
-                                            <CheckCircle className="h-4 w-4 text-green-500" />
-                                          ) : (
-                                            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                                          )}
+                                          {icon}
                                           <a
                                             href={`https://www.nutri-tech.com.au/products/${fert.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className={wouldExceed ? "text-yellow-700 hover:underline font-medium" : "text-blue-700 hover:underline font-medium"}
+                                            className={nameClass}
                                           >
                                             {fert.label}
                                           </a>
                                           <span className="text-xs text-gray-700 ml-1">[{contentString}]</span>
-                                          <span className={wouldExceed ? "text-xs text-yellow-700 ml-2" : "text-xs text-green-700 ml-2"}>
+                                          <span className={rateClass}>
                                             {uncappedRate === cappedRate
                                               ? `(${uncappedRate} kg/ha)`
                                               : `(needed: ${uncappedRate} kg/ha, capped: ${cappedRate} kg/ha due to ${limitingNutrient})`}
                                           </span>
                                         </div>
-                                        {wouldExceed && (
-                                          <span className="text-xs text-yellow-700">Warning: would push {exceedNutrient} to {exceedAmount.toFixed(1)}% above target (limit: {maxAllowedExcess}%)</span>
-                                        )}
+                                        {message}
                                       </div>
                                     </SelectItem>
                                   );
@@ -754,7 +765,6 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                         // Now, for each other nutrient in the fertilizer, calculate the max rate that keeps it <= 115% of target
                         let cappedRate = uncappedRate;
                         let limitingNutrient = null;
-                        let limitingReason = '';
                         Object.entries(fert.nutrientContent).forEach(([otherNutrient, pct]) => {
                           if (!pct || otherNutrient === (nutrient.genericName || nutrient.name)) return;
                           // Find the nutrient object
@@ -781,7 +791,6 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                           if (maxRate < cappedRate) {
                             cappedRate = Math.max(0, Number(maxRate.toFixed(1)));
                             limitingNutrient = otherNutrient;
-                            limitingReason = `Full rate to reach target is ${uncappedRate} kg/ha, but capped at ${cappedRate} kg/ha due to ${otherNutrient} exceeding target by more than ${maxAllowedExcess}%`;
                           }
                         });
                         recommendedRate = cappedRate;
@@ -789,7 +798,7 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                         sel._uncappedRate = uncappedRate;
                         sel._cappedRate = cappedRate;
                         sel._limitingNutrient = limitingNutrient;
-                        sel._limitingReason = limitingReason;
+                        sel._limitingReason = limitingNutrient ? `Full rate to reach target is ${uncappedRate} kg/ha, but capped at ${cappedRate} kg/ha due to ${limitingNutrient} exceeding target by more than ${maxAllowedExcess}%` : '';
                       }
                       // Check if this fertilizer would cause any nutrient to exceed maxAllowedExcess
                       let wouldExceed = false;
@@ -816,174 +825,14 @@ const SoilCorrections = ({ nutrients, soilAmendmentsSummary, setSoilAmendmentsSu
                         const addedByThis = (recommendedRate * pct) / 100 / 2.4;
                         const newValue = nObj.current + alreadyAdded + addedByThis;
                         const maxAllowed = nObj.ideal * (1 + maxAllowedExcess / 100);
-                        if (newValue > maxAllowed) {
+                        const EPSILON = 1e-6;
+                        if (newValue > maxAllowed + EPSILON) {
                           wouldExceed = true;
                           exceedNutrient = otherNutrient;
                           exceedAmount = ((newValue - nObj.ideal) / nObj.ideal) * 100;
                         }
                       });
-                      return (
-                        <div key={idx} className="flex gap-4 items-end mb-2">
-                          <div className="flex-1">
-                            <Select
-                              value={sel.fertLabel}
-                              onValueChange={fertLabel => {
-                                // When fertilizer changes, set recommended rate
-                                let rate = sel.rate;
-                                const fert = availableFerts.find(f => f.label === fertLabel);
-                                if (fert) {
-                                  const percent = fert.nutrientContent[nutrient.genericName || nutrient.name] || 0;
-                                  // Calculate requirement left after previous selectors for main nutrient
-                                  let prevAdded = 0;
-                                  (fertSelections[nutrient.name] || []).forEach((s, i) => {
-                                    if (i < idx && s.fertLabel && s.fertLabel !== 'none') {
-                                      const f = availableFerts.find(ff => ff.label === s.fertLabel);
-                                      if (f) {
-                                        const pct = f.nutrientContent[nutrient.genericName || nutrient.name] || 0;
-                                        prevAdded += (s.rate * pct) / 100 / 2.4;
-                                      }
-                                    }
-                                  });
-                                  const needed = Math.max(nutrient.ideal - (nutrient.current + prevAdded), 0);
-                                  const uncappedRate = percent > 0 ? Number(((needed * 100 * 2.4) / percent).toFixed(1)) : 0;
-                                  let cappedRate = uncappedRate;
-                                  let limitingNutrient = null;
-                                  Object.entries(fert.nutrientContent).forEach(([otherNutrient, pct]) => {
-                                    if (!pct || otherNutrient === (nutrient.genericName || nutrient.name)) return;
-                                    const nObj = nutrients.find(nu => (nu.genericName || nu.name) === otherNutrient);
-                                    if (!nObj) return;
-                                    const maxAllowed = nObj.ideal * (1 + maxAllowedExcess / 100);
-                                    const maxToAdd = maxAllowed - nObj.current;
-                                    const maxRate = pct > 0 ? ((maxToAdd * 100 * 2.4) / pct) : Infinity;
-                                    if (maxRate < cappedRate) {
-                                      cappedRate = Math.max(0, Number(maxRate.toFixed(1)));
-                                      limitingNutrient = otherNutrient;
-                                    }
-                                  });
-                                  rate = cappedRate;
-                                }
-                                setFertSelections(prev => {
-                                  const arr = [...(prev[nutrient.name] || [])];
-                                  arr[idx] = { fertLabel, rate };
-                                  return { ...prev, [nutrient.name]: arr };
-                                });
-                              }}
-                            >
-                              <SelectTrigger className="bg-white w-full h-10">
-                                <SelectValue placeholder="Choose fertilizer" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem key="none" value="none">
-                                  <span>No fertilizer</span>
-                                </SelectItem>
-                                {availableFerts.map(fert => {
-                                  const isRecommended = true;
-                                  const isLowContent = (fert.nutrientContent[nutrient.genericName || nutrient.name] || 0) < 1;
-                                  const percent = fert.nutrientContent[nutrient.genericName || nutrient.name] || 0;
-                                  const contentString = Object.entries(fert.nutrientContent)
-                                    .map(([k, v]) => `${k} ${v}%`).join(', ');
-                                  // --- Calculate recommended rate for this dropdown item ---
-                                  const needed = Math.max(nutrient.ideal - nutrient.current, 0);
-                                  const uncappedRate = percent > 0 ? Number(((needed * 100 * 2.4) / percent).toFixed(1)) : 0;
-                                  let cappedRate = uncappedRate;
-                                  let limitingNutrient = null;
-                                  Object.entries(fert.nutrientContent).forEach(([otherNutrient, pct]) => {
-                                    if (!pct || otherNutrient === (nutrient.genericName || nutrient.name)) return;
-                                    const nObj = nutrients.find(nu => (nu.genericName || nu.name) === otherNutrient);
-                                    if (!nObj) return;
-                                    const maxAllowed = nObj.ideal * (1 + maxAllowedExcess / 100);
-                                    const maxToAdd = maxAllowed - nObj.current;
-                                    const maxRate = pct > 0 ? ((maxToAdd * 100 * 2.4) / pct) : Infinity;
-                                    if (maxRate < cappedRate) {
-                                      cappedRate = Math.max(0, Number(maxRate.toFixed(1)));
-                                      limitingNutrient = otherNutrient;
-                                    }
-                                  });
-                                  const recommendedRate = cappedRate;
-                                  // Check if this fertilizer would cause any nutrient to exceed maxAllowedExcess
-                                  let wouldExceed = false;
-                                  let exceedNutrient = '';
-                                  let exceedAmount = 0;
-                                  Object.entries(fert.nutrientContent).forEach(([otherNutrient, pct]) => {
-                                    if (!pct) return;
-                                    const nObj = nutrients.find(nu => (nu.genericName || nu.name) === otherNutrient);
-                                    if (!nObj) return;
-                                    const addedByThis = (recommendedRate * pct) / 100 / 2.4;
-                                    const newValue = nObj.current + addedByThis;
-                                    const maxAllowed = nObj.ideal * (1 + maxAllowedExcess / 100);
-                                    if (newValue > maxAllowed) {
-                                      wouldExceed = true;
-                                      exceedNutrient = otherNutrient;
-                                      exceedAmount = ((newValue - nObj.ideal) / nObj.ideal) * 100;
-                                    }
-                                  });
-                                  return (
-                                    <SelectItem key={fert.label} value={fert.label} /* never disabled */>
-                                      <div className="flex flex-col gap-0.5">
-                                        <div className="flex items-center gap-2">
-                                          {wouldExceed ? (
-                                            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                                          ) : isRecommended && !isLowContent ? (
-                                            <CheckCircle className="h-4 w-4 text-green-500" />
-                                          ) : (
-                                            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                                          )}
-                                          <a
-                                            href={`https://www.nutri-tech.com.au/products/${fert.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={wouldExceed ? "text-yellow-700 hover:underline font-medium" : "text-blue-700 hover:underline font-medium"}
-                                          >
-                                            {fert.label}
-                                          </a>
-                                          <span className="text-xs text-gray-700 ml-1">[{contentString}]</span>
-                                          <span className={wouldExceed ? "text-xs text-yellow-700 ml-2" : "text-xs text-green-700 ml-2"}>
-                                            {uncappedRate === cappedRate
-                                              ? `(${uncappedRate} kg/ha)`
-                                              : `(needed: ${uncappedRate} kg/ha, capped: ${cappedRate} kg/ha due to ${limitingNutrient})`}
-                                          </span>
-                                        </div>
-                                        {wouldExceed && (
-                                          <span className="text-xs text-yellow-700">Warning: would push {exceedNutrient} to {exceedAmount.toFixed(1)}% above target (limit: {maxAllowedExcess}%)</span>
-                                        )}
-                                      </div>
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="w-32 flex flex-col">
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">Application Rate (kg/ha)</label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={sel.rate}
-                              onChange={e => {
-                                const rate = Number(e.target.value);
-                                setFertSelections(prev => {
-                                  const arr = [...(prev[nutrient.name] || [])];
-                                  arr[idx] = { ...arr[idx], rate };
-                                  return { ...prev, [nutrient.name]: arr };
-                                });
-                              }}
-                              className="bg-white h-10 w-20"
-                            />
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-10 text-red-500"
-                            onClick={() => {
-                              setFertSelections(prev => {
-                                const arr = [...(prev[nutrient.name] || [])];
-                                arr.splice(idx, 1);
-                                return { ...prev, [nutrient.name]: arr };
-                              });
-                            }}
-                          >Remove</Button>
-                        </div>
-                      );
+                      // ... existing code for rendering selector ...
                     })}
                     <Button
                       variant="outline"
